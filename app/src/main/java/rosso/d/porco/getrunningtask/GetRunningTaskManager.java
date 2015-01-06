@@ -3,10 +3,12 @@ package rosso.d.porco.getrunningtask;
 import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -21,11 +23,13 @@ public class GetRunningTaskManager {
     private static GetRunningTaskManager sGetRunningTaskManager;
     private ActivityManager mActivityMgr = null;
     private Context mContext;
-    private boolean mIsRunning = true;
+    private boolean mIsRunning = true , mIsCountDownOver = false;
     private Thread mThread;
     private Queue<String> mRunningAppList = null;
     private List<String> mSystemAppList = null;
     private final int HISTORY_SIZE = 5;
+
+    private ArrayList<String> mBlackList = null;
 
     public static GetRunningTaskManager getInstance( Context context ){
         if ( sGetRunningTaskManager == null ) {
@@ -54,9 +58,11 @@ public class GetRunningTaskManager {
     }
 
     public synchronized void triggerGetRunningTaskThread(){
+        mIsCountDownOver = false;
         if ( isNewAPI() ) {
             if ( mRunningAppList != null )
                 mRunningAppList.clear();
+
             mThread = new Thread(new GetRunningTask());
             mIsRunning = true;
             mThread.start();
@@ -71,6 +77,29 @@ public class GetRunningTaskManager {
         }
     }
 
+    private void sendCountDownInfo(){
+        int count = 3;
+        while(count>0){
+            try {
+                setBlackList();
+                count--;
+                Intent forMainUI = new Intent(GetRunningTaskService.COUNT_DOWN);
+                forMainUI.putExtra(GetRunningTaskService.TIME_KEY,count);
+                mContext.sendBroadcast(forMainUI);
+                Thread.sleep(1000);
+            }catch (InterruptedException interrupt){
+                interrupt.printStackTrace();
+            }
+        }
+        mIsCountDownOver = true;
+    }
+    private class SendCountDownTask implements Runnable {
+
+        @Override
+        public void run() {
+            sendCountDownInfo();
+        }
+    }
     private String getCurrentTaskPkgName(){
 
         String currentPkgName = "";
@@ -110,19 +139,24 @@ public class GetRunningTaskManager {
 
         @Override
         public void run() {
+            Thread countDown = new Thread(new SendCountDownTask());
+            countDown.start();
             while ( mIsRunning ) {
-                try {
-                    getSystemApp();
-                    Thread.sleep(500);
-                    setRunningAppHistory();
-                } catch ( InterruptedException interrupt ) {
-                    mIsRunning = false;
-                } catch ( Exception e ) {
-                    mIsRunning = false;
+                if ( mIsCountDownOver ) {
+                    try {
+                        getSystemApp();
+                        Thread.sleep(500);
+                        setRunningAppHistory();
+                    } catch (InterruptedException interrupt) {
+                        mIsRunning = false;
+                    } catch (Exception e) {
+                        mIsRunning = false;
+                    }
                 }
             }
         }
     }
+
 
     private void setRunningAppHistory() {
 
@@ -136,7 +170,7 @@ public class GetRunningTaskManager {
                         processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND){
                     boolean isSystemApp = false;
 
-                    for ( String systemProcessPkgName : mSystemAppList ) {
+                    for ( String systemProcessPkgName : mBlackList ) {
                         if ( processInfo.processName.contains(systemProcessPkgName) ){
                             isSystemApp = true;
                             break;
@@ -155,7 +189,26 @@ public class GetRunningTaskManager {
 
     }
 
+    private void setBlackList(){
+        List<ActivityManager.RunningAppProcessInfo> runningAppProcesses = mActivityMgr.getRunningAppProcesses();
+
+        mBlackList = new ArrayList<String>();
+        for ( ActivityManager.RunningAppProcessInfo processInfo : runningAppProcesses ){
+            if ( processInfo.lru == 0 &&
+                    processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND){
+
+                if ( !mContext.getPackageName().contains(processInfo.processName)  ) {
+                    if ( !mBlackList.contains(processInfo.processName) ){
+                        mBlackList.add(processInfo.processName);
+                    }
+                }
+            }
+        }
+
+    }
+
     private void pushIntoHistory(String pkgName){
+
         if ( mRunningAppList.size() >= HISTORY_SIZE )
             mRunningAppList.poll();
         mRunningAppList.offer(pkgName);

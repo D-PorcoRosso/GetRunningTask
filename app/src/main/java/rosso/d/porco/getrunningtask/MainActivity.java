@@ -1,20 +1,50 @@
 package rosso.d.porco.getrunningtask;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 
 
 public class MainActivity extends Activity {
+
+    private CountDown mCountDown;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        startService(GetRunningTaskService.getCallingIntent(this));
+        startService(GetRunningTaskService.getCallingIntent(this,100));
+        mCountDown = new CountDown();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(GetRunningTaskService.COUNT_DOWN);
+        registerReceiver(mCountDown,filter);
     }
 
+    private class CountDown extends BroadcastReceiver{
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+
+            int time = intent.getIntExtra(GetRunningTaskService.TIME_KEY,3);
+
+            setCountDown(time);
+        }
+    }
+
+    private void setCountDown(int time){
+        TextView countTime = (TextView)findViewById(R.id.count_number);
+        if( time == 0 )
+            countTime.setText("you can leave app , getting info will do in background");
+        else
+            countTime.setText(Integer.toString(time));
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -41,6 +71,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy(){
         super.onDestroy();
-        //stopService(GetRunningTaskService.getCallingIntent(this));
+        if ( mCountDown != null ){
+            unregisterReceiver(mCountDown);
+        }
     }
 }

@@ -15,12 +15,17 @@ public class GetRunningTaskService extends Service {
 
     private GetRunningTaskManager mTaskManager;
     private Thread mThread;
+    private NotificationManager nm;
+    private static int BOUND = 100;
 
-    public static Intent getCallingIntent(Context context) {
+    public static Intent getCallingIntent(Context context,int time) {
         Intent callingIntent = new Intent(context, GetRunningTaskService.class);
-
+        BOUND = time;
         return callingIntent;
     }
+
+    public static String COUNT_DOWN = "porco.d.rosso.countdown";
+    public static String TIME_KEY = "count_key";
 
     @Override
     public IBinder onBind(Intent argc){
@@ -29,6 +34,8 @@ public class GetRunningTaskService extends Service {
 
     @Override
     public void onCreate(){
+        super.onCreate();
+        nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         mTaskManager = GetRunningTaskManager.getInstance(this);
         mTaskManager.triggerGetRunningTaskThread();
         mThread = new Thread(new post());
@@ -37,13 +44,17 @@ public class GetRunningTaskService extends Service {
 
     @Override
     public void onDestroy(){
+        nm.cancel(5566);
+        mTaskManager.stopThread();
+        stopSelf();
+        super.onDestroy();
     }
 
     private class post implements Runnable{
         @Override
         public void run() {
             int i = 0;
-            while (i<100){
+            while ( i < BOUND ){
                 try {
                     postCurrentTaskNotification();
                     Thread.sleep(3000);
@@ -52,11 +63,12 @@ public class GetRunningTaskService extends Service {
                     interrupt.printStackTrace();
                 }
             }
+            onDestroy();
         }
     };
 
     private void postCurrentTaskNotification(){
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
         Notification.Builder builder = new Notification.Builder(this);
         String currentTask = mTaskManager.getRunningTask();
         Bitmap icon = BitmapFactory.decodeResource(getResources(),R.drawable.ic_launcher);
