@@ -113,7 +113,7 @@ public class GetRunningTaskManager {
             while ( mIsRunning ) {
                 try {
                     getSystemApp();
-                    Thread.sleep(1000);
+                    Thread.sleep(500);
                     setRunningAppHistory();
                 } catch ( InterruptedException interrupt ) {
                     mIsRunning = false;

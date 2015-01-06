@@ -1,8 +1,13 @@
 package rosso.d.porco.getrunningtask;
 
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -38,9 +43,10 @@ public class GetRunningTaskService extends Service {
         @Override
         public void run() {
             int i = 0;
-            while (true){
+            while (i<100){
                 try {
-                    Thread.sleep(5000);
+                    postCurrentTaskNotification();
+                    Thread.sleep(3000);
                     i++;
                 } catch (InterruptedException interrupt) {
                     interrupt.printStackTrace();
@@ -48,4 +54,18 @@ public class GetRunningTaskService extends Service {
             }
         }
     };
+
+    private void postCurrentTaskNotification(){
+        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        Notification.Builder builder = new Notification.Builder(this);
+        String currentTask = mTaskManager.getRunningTask();
+        Bitmap icon = BitmapFactory.decodeResource(getResources(),R.drawable.ic_launcher);
+        Notification post = builder
+                .setSmallIcon(R.drawable.ic_launcher)
+                .setLargeIcon(icon)
+                .setContentTitle(getResources().getString(R.string.current_task))
+                .setContentText(currentTask)
+                .build();
+        nm.notify(5566,post);
+    }
 }

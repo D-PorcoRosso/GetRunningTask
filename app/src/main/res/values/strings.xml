@@ -4,5 +4,6 @@
     <string name="app_name">GetRunningTask</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="current_task">CurrentTask:</string>
 
 </resources>
